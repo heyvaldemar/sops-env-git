@@ -1,0 +1,11 @@
+# The plaintext files docker reads. Their encrypted twins are committed.
+.env
+*/.env
+!*.env.example
+!*.env.sops
+
+# Private keys, of any shape, anywhere.
+keys.txt
+*.pem
+id_rsa
+id_ed25519

@@ -1,0 +1,21 @@
+# Copy to .sops.yaml at the repository root and put YOUR public key in it.
+#
+# EACH MACHINE NEEDS ITS OWN KEY. One key across two hosts means compromising
+# either one opens the secrets of both, and removes any possibility of
+# rotating one without the other. Generate with:
+#
+#   mkdir -p ~/.config/sops/age && chmod 700 ~/.config/sops/age
+#   age-keygen -o ~/.config/sops/age/keys.txt
+#   chmod 600 ~/.config/sops/age/keys.txt
+#
+# Then put the PRIVATE key in your password manager. Losing it makes every
+# encrypted file here unreadable forever; committing it makes the encryption
+# theatre, and git history keeps it after you delete it.
+
+creation_rules:
+  - path_regex: \.env$
+    age: age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    # Only VALUES. A diff then shows THAT a password changed without showing
+    # what to, which is what makes the history reviewable — and it is also why
+    # comments stay in the clear, so never paste a token into one.
+    encrypted_regex: '^[A-Z0-9_]+$'

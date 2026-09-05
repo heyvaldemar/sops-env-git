@@ -1,0 +1,89 @@
+#!/bin/bash
+# pre-commit — refuse to commit a plaintext secret.
+#
+# THE QUESTION TO ASK ANY LEAK DETECTOR: has it ever been shown a real secret?
+# The one this replaces had been installed for days. Fed a live webhook, it
+# passed it. Two independent faults, and the worse one arrived as a FIX:
+#
+#   * `hc-ping\\.com` inside a single-quoted shell string reaches grep as a
+#     literal backslash followed by any character. It could never match
+#     hc-ping.com. A pattern that cannot match is invisible in a green run.
+#
+#   * A path exclusion added to silence sudoers NOPASSWD false positives read
+#     `[:=][[:space:]]*"?/[A-Za-z0-9_./-]+` — and the `:` in `https:` is a
+#     `[:=]`. Every URL in every file was excluded from the scan. A false
+#     positive was silenced by widening an exclusion, and the exclusion
+#     swallowed the true positives.
+#
+# So: tests/test-hook.sh feeds this three real credential shapes and a handful
+# of benign ones, and fails if any of them is classified wrongly. A detector
+# with no test is a decoration.
+set -uo pipefail
+
+fail=0
+say() { printf '%s\n' "$*" >&2; }
+
+staged() { git diff --cached --name-only --diff-filter=ACM; }
+
+# 1. BY FILENAME, BEFORE READING ANYTHING.
+#
+# .gitignore with an exclusion and a negation beside it is exactly where
+# `git add -f` slips a file through, and the contents check below can be
+# argued with. A filename cannot.
+while IFS= read -r f; do
+  case "$f" in
+    .env|*/.env|*.env)
+      case "$f" in *.env.example|*.env.sops) continue ;; esac
+      say "refusing: $f is a plaintext env file"; fail=1 ;;
+    keys.txt|*/keys.txt|*age*key*|*.pem|*id_rsa|*id_ed25519)
+      say "refusing: $f looks like a private key"; fail=1 ;;
+  esac
+done < <(staged)
+
+# 2. BY CONTENT.
+#
+# Deliberately narrow and specific: shapes that are secrets and almost nothing
+# else. A broad rule produces false positives, somebody silences them with an
+# exclusion, and the exclusion eats the true positives — which is the exact
+# history above.
+patterns=(
+  'AGE-SECRET-KEY-1[0-9A-Z]{20,}'
+  '-----BEGIN [A-Z ]*PRIVATE KEY-----'
+  'xox[baprs]-[0-9A-Za-z-]{10,}'
+  'ghp_[0-9A-Za-z]{30,}'
+  'github_pat_[0-9A-Za-z_]{20,}'
+  'sk-[0-9A-Za-z]{32,}'
+  're_[0-9A-Za-z_]{16,}'
+  'AKIA[0-9A-Z]{16}'
+  'https://hooks\.slack\.com/services/[0-9A-Za-z/]{20,}'
+  'https://[a-z0-9.-]+/hooks/[0-9a-z]{24,}'
+  'https://hc-ping\.com/[0-9a-f-]{30,}'
+)
+
+while IFS= read -r f; do
+  [ -f "$f" ] || continue
+  # Skip this hook and its own tests: they contain example shapes on purpose,
+  # and a detector that cannot describe what it detects is not much use.
+  case "$f" in hooks/pre-commit|tests/*) continue ;; esac
+  for p in "${patterns[@]}"; do
+    # grep -c, never grep -q: under pipefail an early-exiting consumer kills
+    # the producer with SIGPIPE and the pipeline returns 141, which reads as
+    # "no match" at random.
+    # -e is load-bearing: the private-key pattern starts with a dash, and
+    # without -e grep takes it for an option and never matches. A pattern that
+    # cannot match is invisible in a green run.
+    n="$(git show ":$f" 2>/dev/null | grep -acE -e "$p" || true)"
+    if [ "${n:-0}" -gt 0 ]; then
+      say "refusing: $f contains something shaped like a credential"
+      fail=1
+      break
+    fi
+  done
+done < <(staged)
+
+[ "$fail" -eq 0 ] || say "
+Nothing was committed. If this is a false positive, the fix is a NARROWER
+pattern in hooks/pre-commit with a test beside it in tests/test-hook.sh — not
+a wider exclusion. A widened exclusion is how the previous version of this
+hook came to pass a live webhook."
+exit "$fail"
