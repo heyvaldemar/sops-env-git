@@ -67,7 +67,9 @@ RESEND="re_$(printf 'd3nLxogbHyFHd3gbtAowSzvfVszg5c7S')"
 SLACK="$S/T00000000/B00000000/$(printf 'X%.0s' $(seq 1 24))"
 MMHOOK="$MM/$(printf 'abcdefghijklmnopqrstuvwx')"
 HCPING="$HC/1f0e3dad-99bb-4a1e-9c2b-3c5c1a2b3c4d"
-SSHKEY="-----BEGIN OPENSSH PRIVATE KEY-----
+# Header and format magic only, no key material — but assembled like the rest
+# so that no literal in this repository looks like a credential to a scanner.
+SSHKEY="$(printf -- '-%.0s' $(seq 1 5))BEGIN OPENSSH PRIVATE KEY$(printf -- '-%.0s' $(seq 1 5))
 b3BlbnNzaC1rZXktdjEAAAAA"
 
 echo "=== does the hook catch a real secret, and let real code through? ==="
