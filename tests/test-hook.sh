@@ -89,6 +89,23 @@ must_reject "a healthchecks ping url"                          "cron.sh" "PING=$
 must_reject "a Resend api key"                                 "mail.sh" "RESEND_API_KEY=$RESEND"
 must_reject "a secret pasted into a COMMENT, which sops does not encrypt" "notes.md" "# reminder: the hook is $SLACK"
 
+# THE SHAPES NO CONTENT SCAN CAN SEE. A Traefik acme.json carries its ACME
+# account private key as base64 inside JSON; a PKCS#12 or a Java keystore is a
+# binary container. There is no pattern to match, so the name is the only
+# warning there will be — and on the machine these rules come from, exactly
+# that file went past a scan that rejected an ordinary DB_PASSWORD line in the
+# same commit. The bodies below are shaped like the real thing and contain no
+# key material.
+must_reject "a Traefik acme.json"       "acme.json"          '{"letsencrypt":{"Account":{"Email":"a@example.com","PrivateKey":"MIIEow=="}}}'
+must_reject "a nested acme.json"        "traefik/acme.json"  '{"letsencrypt":{"Account":{"PrivateKey":"MIIEow=="}}}'
+must_reject "a PKCS#12 keystore"        "certs/server.p12"   "binary"
+must_reject "a PFX keystore"            "certs/server.pfx"   "binary"
+must_reject "a Java keystore"           "certs/server.jks"   "binary"
+must_reject "a keystore by extension"   "certs/app.keystore" "binary"
+must_reject "a KeePass database"        "passwords.kdbx"     "binary"
+must_reject "a private key by extension" "tls/server.key"    "binary"
+must_reject "a PuTTY private key"       "deploy.ppk"         "binary"
+
 echo
 echo "the shapes it must ACCEPT"
 must_accept "an example env file"          ".env.example" "DB_PASSWORD="
@@ -99,6 +116,13 @@ must_accept "an ordinary https url"        "README.md" "See https://github.com/h
 must_accept "a compose file with a variable reference" "docker-compose.yml" 'DB_PASSWORD: ${DB_PASSWORD:?set in .env}'
 must_accept "a docs line naming a token variable"      "docs.md" "Set GITHUB_TOKEN in your environment before running this."
 must_accept "a placeholder in documentation"           "SETUP.md" "export RESEND_API_KEY=re_your_key_here"
+# The container rules match an EXTENSION, not a substring. A rule written as
+# *p12* or *key* instead would reject the documentation that explains it, and a
+# hook that rejects its own README is a hook somebody uninstalls.
+must_accept "prose that names acme.json"   "README.md"          "Traefik writes its certificates to acme.json; keep it out of git."
+must_accept "a filename containing p12"    "docs/p12-notes.md"  "How to build a PKCS#12 bundle for testing."
+must_accept "a filename containing key"    "docs/keystore.md"   "Where each keystore lives and who can read it."
+must_accept "a public certificate"         "certs/server.crt"   "-----BEGIN CERTIFICATE-----"
 
 echo
 echo "passed: $PASSED   failed: $FAILED"

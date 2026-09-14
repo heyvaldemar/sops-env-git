@@ -19,6 +19,10 @@ Compose reads `.env` in plain text and there is no way around that. So the repos
 
 **A `.gitignore` with a negation beside an exclusion is exactly where `git add -f` slips a plaintext file through.** The hook rejects by filename before it reads a byte, because a filename cannot be argued with.
 
+**Some secrets cannot be read at all.** Every content pattern looks for the shape of a credential in text. A PKCS#12 keystore is a binary container; Traefik's `acme.json` holds its ACME account private key as base64 inside JSON. Neither looks like anything. On the machine these rules come from, an `acme.json` went past a content scan that correctly rejected an ordinary `DB_PASSWORD=` line in the same commit — the key was there, the scanner had nothing to match, and the name on the file was the only warning available. So `acme.json`, `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, `*.kdbx`, `*.key` and `*.ppk` are refused by name, whatever is inside them.
+
+That list stops at credential containers. `*.db` and `*.sqlite` are secrets on a configuration host and ordinary fixtures in a normal repository, and a rule that fires on both is a rule somebody switches off — add them to your copy if your repository has no innocent ones.
+
 ## The question to ask any leak detector
 
 Has it ever been shown a real secret?
@@ -68,7 +72,7 @@ It does not replace a secrets manager. This makes a git repository able to rebui
 
 ## Testing
 
-`tests/test-hook.sh` runs the detector in both directions, nineteen cases. `tests/test-sync.sh` runs eight against real sops and age: values encrypted and names readable, an untouched file reporting no drift despite the dropped blank lines, a changed value reported by key name without printing it, a comment-only edit not counted as a secret change, an undecryptable copy reported rather than skipped, and a repository with no `.env` failing instead of reporting all clear.
+`tests/test-hook.sh` runs the detector in both directions, thirty-two cases. `tests/test-sync.sh` runs eight against real sops and age: values encrypted and names readable, an untouched file reporting no drift despite the dropped blank lines, a changed value reported by key name without printing it, a comment-only edit not counted as a secret change, an undecryptable copy reported rather than skipped, and a repository with no `.env` failing instead of reporting all clear.
 
 ---
 

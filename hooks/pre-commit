@@ -30,13 +30,30 @@ staged() { git diff --cached --name-only --diff-filter=ACM; }
 # .gitignore with an exclusion and a negation beside it is exactly where
 # `git add -f` slips a file through, and the contents check below can be
 # argued with. A filename cannot.
+#
+# AND SOME SECRETS CANNOT BE READ AT ALL. Every pattern in section 2 looks for
+# the SHAPE of a credential in text. A PKCS#12 keystore is a binary container;
+# a Traefik `acme.json` holds its ACME account private key as base64 inside
+# JSON. Neither looks like anything. On the machine these rules come from, an
+# acme.json went past a content scan that correctly rejected an ordinary
+# `DB_PASSWORD=` line in the same commit — the key was there, the scanner had
+# nothing to match, and the only thing that could have stopped it was the name
+# on the file.
+#
+# So the list below is credential CONTAINERS, by extension, whatever is inside
+# them. It deliberately stops there: `*.db` and `*.sqlite` are secrets on a
+# configuration host and ordinary fixtures in a normal repository, and a rule
+# that fires on both is a rule somebody switches off. Add them to your own copy
+# if your repository has no innocent ones.
 while IFS= read -r f; do
   case "$f" in
     .env|*/.env|*.env)
       case "$f" in *.env.example|*.env.sops) continue ;; esac
       say "refusing: $f is a plaintext env file"; fail=1 ;;
-    keys.txt|*/keys.txt|*age*key*|*.pem|*id_rsa|*id_ed25519)
+    keys.txt|*/keys.txt|*age*key*|*.pem|*.key|*.ppk|*id_rsa|*id_ed25519)
       say "refusing: $f looks like a private key"; fail=1 ;;
+    acme.json|*/acme.json|*.p12|*.pfx|*.jks|*.keystore|*.kdbx)
+      say "refusing: $f is a credential store — nothing can read what is inside it, so the name is the only warning there will be"; fail=1 ;;
   esac
 done < <(staged)
 

@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _(no unreleased changes yet)_
 
+## [1.1.0] - 2026-09-14
+
+### Added
+
+- **Credential containers are refused by name**: `acme.json`, `*.p12`, `*.pfx`,
+  `*.jks`, `*.keystore`, `*.kdbx`, `*.key` and `*.ppk`. Every content pattern
+  in the hook looks for the shape of a credential in text, and these have no
+  shape: a PKCS#12 store is binary, and Traefik's `acme.json` carries its ACME
+  account private key as base64 inside JSON. On the machine these rules come
+  from, exactly that file went past a content scan that correctly rejected an
+  ordinary `DB_PASSWORD=` line in the same commit.
+- The list stops at credential containers on purpose. `*.db` and `*.sqlite` are
+  secrets on a configuration host and ordinary fixtures in a normal repository;
+  a rule that fires on both is a rule somebody switches off. The README says how
+  to add them.
+- **Thirteen more assertions** in `tests/test-hook.sh`, both directions: each
+  container shape is refused, and prose that merely names one is not. The
+  extension rules are matched as extensions rather than as substrings, so
+  `docs/p12-notes.md` and `docs/keystore.md` still commit — a hook that rejects
+  its own documentation is a hook somebody uninstalls.
+
 ## [1.0.0] - 2026-09-05
 
 ### Added
@@ -57,5 +78,6 @@ _(no unreleased changes yet)_
   format varies between implementations; it now compares key by key and cannot
   print an empty list while looking like it worked.
 
-[Unreleased]: https://github.com/heyvaldemar/sops-env-git/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/heyvaldemar/sops-env-git/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/heyvaldemar/sops-env-git/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/heyvaldemar/sops-env-git/releases/tag/v1.0.0
