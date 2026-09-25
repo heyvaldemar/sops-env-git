@@ -1,6 +1,7 @@
 # SOPS env in git
 
 [![Tests](https://github.com/heyvaldemar/sops-env-git/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/heyvaldemar/sops-env-git/actions/workflows/tests.yml)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14913/badge)](https://www.bestpractices.dev/projects/14913)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Keep your `.env` files in git, encrypted, so a repository can rebuild a host instead of only describing one.
